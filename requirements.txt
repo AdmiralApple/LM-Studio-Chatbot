@@ -1,0 +1,7 @@
+flask
+flask-cors
+kokoro
+numpy
+openai
+sounddevice
+torch

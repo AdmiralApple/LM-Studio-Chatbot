@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LM Studio + Kokoro Chat</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar__header">
+          <h1>LM&nbsp;TTS</h1>
+          <button id="new-chat-btn" class="btn primary">New Chat</button>
+        </div>
+        <div id="chat-list" class="chat-list"></div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-toolbar">
+          <div>
+            <strong>LM Studio Assistant</strong>
+            <p class="subtitle">
+              Powered by LM Studio + Kokoro
+            </p>
+          </div>
+          <div class="toolbar-actions">
+            <label class="model-control">
+              <span>Model</span>
+              <select id="model-select"></select>
+            </label>
+            <label class="voice-control">
+              <span>Voice</span>
+              <select id="voice-select"></select>
+            </label>
+            <label class="temperature-control">
+              <span>Temp</span>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="1"
+                id="temperature-input"
+              />
+            </label>
+            <button id="redo-btn" class="btn ghost" title="Redo last response">
+              Redo
+            </button>
+          </div>
+        </header>
+
+        <section id="status" class="status" role="status"></section>
+
+        <section id="messages" class="messages"></section>
+
+        <form id="composer" class="composer">
+          <textarea
+            id="prompt-input"
+            placeholder="Type your next message..."
+            rows="3"
+            required
+          ></textarea>
+          <div class="composer__actions">
+            <span id="pending-indicator" class="pending hidden">Thinking…</span>
+            <button type="submit" class="btn primary">Send</button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <template id="message-template">
+      <article class="message">
+        <header class="message__head">
+          <span class="message__role"></span>
+          <div class="message__controls"></div>
+        </header>
+        <pre class="message__content"></pre>
+      </article>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
