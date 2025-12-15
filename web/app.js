@@ -13,6 +13,7 @@ const elements = {
   promptInput: document.getElementById("prompt-input"),
   pendingIndicator: document.getElementById("pending-indicator"),
   redoBtn: document.getElementById("redo-btn"),
+  stopAudioBtn: document.getElementById("stop-audio-btn"),
   status: document.getElementById("status"),
   temperatureInput: document.getElementById("temperature-input"),
   modelSelect: document.getElementById("model-select"),
@@ -29,7 +30,10 @@ const state = {
   model: null,
   voices: [],
   voice: null,
+  audioPlaying: false,
 };
+
+let audioPlayer = null;
 
 document.addEventListener("DOMContentLoaded", init);
 
@@ -123,6 +127,13 @@ function bindEvents() {
     }
     updateControls();
   });
+
+  if (elements.stopAudioBtn) {
+    elements.stopAudioBtn.addEventListener("click", () => {
+      if (!state.audioPlaying) return;
+      stopAudio(true);
+    });
+  }
 }
 
 function loadState() {
@@ -287,6 +298,9 @@ function updateControls() {
   elements.composer.querySelector("button[type=submit]").disabled = disabled;
   elements.modelSelect.disabled = !state.models.length;
   elements.voiceSelect.disabled = !state.voices.length;
+  if (elements.stopAudioBtn) {
+    elements.stopAudioBtn.disabled = !state.audioPlaying;
+  }
 }
 
 function canRedo() {
@@ -404,11 +418,48 @@ async function fetchTTS(text, voice) {
 }
 
 function playAudio(source) {
+  stopAudio(false);
+
   const audio = new Audio(source);
+  audioPlayer = audio;
+  state.audioPlaying = true;
+  updateControls();
+
+  const handleAudioFinished = () => {
+    if (audioPlayer === audio) {
+      audioPlayer = null;
+      state.audioPlaying = false;
+      updateControls();
+    }
+  };
+
+  audio.addEventListener("ended", handleAudioFinished);
+  audio.addEventListener("error", (event) => {
+    console.error("Audio playback failed", event);
+    setStatus("Unable to play audio (check browser permissions).");
+    stopAudio(false);
+  });
+
   audio.play().catch((error) => {
     console.error("Audio playback failed", error);
     setStatus("Unable to play audio (check browser permissions).");
+    stopAudio(false);
   });
+}
+
+function stopAudio(showStatus = false) {
+  if (audioPlayer) {
+    audioPlayer.pause();
+    audioPlayer.currentTime = 0;
+    audioPlayer = null;
+  }
+  if (state.audioPlaying) {
+    state.audioPlaying = false;
+    updateControls();
+  }
+  if (showStatus) {
+    setStatus("Audio stopped.", false);
+  }
 }
 
 function copyMessage(text) {
