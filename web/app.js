@@ -379,21 +379,21 @@ async function speakAssistantMessage(messageId) {
   if (!chat) return;
   const message = chat.messages.find((m) => m.id === messageId);
   if (!message) return;
-  const voice = message.voice || state.voice;
-  if (!voice) {
+  const selectedVoice = state.voice;
+  if (!selectedVoice) {
     setStatus("No Kokoro voice selected.");
     return;
   }
 
   try {
-    if (message.audioUrl) {
+    if (message.audioUrl && message.voice === selectedVoice) {
       playAudio(message.audioUrl);
       return;
     }
     setStatus("Generating speech…", false);
-    const audioUrl = await fetchTTS(message.content, voice);
+    const audioUrl = await fetchTTS(message.content, selectedVoice);
     message.audioUrl = audioUrl;
-    message.voice = voice;
+    message.voice = selectedVoice;
     saveState();
     playAudio(audioUrl);
   } catch (error) {
