@@ -31,6 +31,8 @@ const state = {
   voices: [],
   voice: null,
   audioPlaying: false,
+  editingMessageId: null,
+  editingValue: "",
 };
 
 let audioPlayer = null;
@@ -238,7 +240,11 @@ function renderMessages() {
     .filter((message) => message.role !== "system")
     .forEach((message) => {
       const article = document.createElement("article");
+      const isEditing = state.editingMessageId === message.id;
       article.className = `message message--${message.role}`;
+      if (isEditing) {
+        article.classList.add("message--editing");
+      }
 
       const head = document.createElement("header");
       head.className = "message__head";
@@ -250,45 +256,88 @@ function renderMessages() {
 
       const controls = document.createElement("div");
       controls.className = "message__controls";
-      if (message.role === "assistant") {
-        const speakBtn = document.createElement("button");
-        speakBtn.className = "btn ghost";
-        speakBtn.textContent = "Speak";
-        speakBtn.addEventListener("click", () =>
-          speakAssistantMessage(message.id)
+
+      if (isEditing) {
+        controls.classList.add("message__controls--editing");
+        controls.textContent = "Editing…";
+      } else {
+        if (message.role === "assistant") {
+          const speakBtn = document.createElement("button");
+          speakBtn.className = "btn ghost";
+          speakBtn.textContent = "Speak";
+          speakBtn.addEventListener("click", () =>
+            speakAssistantMessage(message.id)
+          );
+          controls.appendChild(speakBtn);
+
+          const copyBtn = document.createElement("button");
+          copyBtn.className = "btn ghost";
+          copyBtn.textContent = "Copy";
+          copyBtn.addEventListener("click", () => copyMessage(message.content));
+          controls.appendChild(copyBtn);
+        }
+
+        const editBtn = document.createElement("button");
+        editBtn.className = "btn ghost";
+        editBtn.textContent = "Edit";
+        editBtn.addEventListener("click", () => startEditingMessage(message.id));
+        controls.appendChild(editBtn);
+
+        const branchBtn = document.createElement("button");
+        branchBtn.className = "btn ghost";
+        branchBtn.textContent = "Branch";
+        branchBtn.addEventListener("click", () =>
+          branchChatFromMessage(message.id)
         );
-        controls.appendChild(speakBtn);
-
-        const copyBtn = document.createElement("button");
-        copyBtn.className = "btn ghost";
-        copyBtn.textContent = "Copy";
-        copyBtn.addEventListener("click", () => copyMessage(message.content));
-        controls.appendChild(copyBtn);
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "btn ghost";
-        editBtn.textContent = "Edit";
-        editBtn.addEventListener("click", () => editAssistantMessage(message.id));
-        controls.appendChild(editBtn);
-      } else if (message.role === "user") {
-        const editBtn = document.createElement("button");
-        editBtn.className = "btn ghost";
-        editBtn.textContent = "Edit";
-        editBtn.addEventListener("click", () => editUserMessage(message.id));
-        controls.appendChild(editBtn);
+        controls.appendChild(branchBtn);
       }
-      const branchBtn = document.createElement("button");
-      branchBtn.className = "btn ghost";
-      branchBtn.textContent = "Branch";
-      branchBtn.addEventListener("click", () => branchChatFromMessage(message.id));
-      controls.appendChild(branchBtn);
+
       head.appendChild(controls);
 
-      const content = document.createElement("pre");
-      content.className = "message__content";
-      content.textContent = message.content;
+      if (isEditing) {
+        const editor = document.createElement("textarea");
+        const editingValue = state.editingValue ?? "";
+        editor.className = "message__editor";
+        editor.value = editingValue;
+        editor.setAttribute("data-edit-id", message.id);
+        editor.rows = Math.max(3, editingValue.split("\n").length + 1);
+        editor.addEventListener("input", (event) => {
+          state.editingValue = event.target.value;
+        });
+        editor.addEventListener("keydown", (event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+            event.preventDefault();
+            saveEditedMessage();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            cancelEditingMessage();
+          }
+        });
 
-      article.append(head, content);
+        const actions = document.createElement("div");
+        actions.className = "message__editor-actions";
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.type = "button";
+        cancelBtn.className = "btn ghost";
+        cancelBtn.textContent = "Cancel";
+        cancelBtn.addEventListener("click", cancelEditingMessage);
+
+        const saveBtn = document.createElement("button");
+        saveBtn.type = "button";
+        saveBtn.className = "btn primary";
+        saveBtn.textContent = "Save";
+        saveBtn.addEventListener("click", saveEditedMessage);
+
+        actions.append(cancelBtn, saveBtn);
+        article.append(head, editor, actions);
+      } else {
+        const content = document.createElement("pre");
+        content.className = "message__content";
+        content.textContent = message.content;
+        article.append(head, content);
+      }
+
       elements.messages.appendChild(article);
     });
 
@@ -480,48 +529,80 @@ function copyMessage(text) {
     .catch(() => setStatus("Copy failed"));
 }
 
-function editUserMessage(messageId) {
-  const chat = getActiveChat();
-  if (!chat) return;
-  const index = chat.messages.findIndex((m) => m.id === messageId);
-  if (index === -1) return;
-  const message = chat.messages[index];
-  if (message.role !== "user") return;
-
-  const updated = prompt("Edit your message:", message.content);
-  if (updated === null) return;
-  const trimmed = updated.trim();
-  if (!trimmed) {
-    setStatus("Message cannot be empty.");
-    return;
-  }
-
-  message.content = trimmed;
-  chat.messages = chat.messages.slice(0, index + 1);
-  saveState();
-  renderMessages();
-  requestAssistantResponse(chat);
-}
-
-function editAssistantMessage(messageId) {
+function startEditingMessage(messageId) {
   const chat = getActiveChat();
   if (!chat) return;
   const message = chat.messages.find((m) => m.id === messageId);
-  if (!message || message.role !== "assistant") return;
+  if (!message || message.role === "system") return;
 
-  const updated = prompt("Edit assistant response:", message.content);
-  if (updated === null) return;
-  const trimmed = updated.trim();
+  state.editingMessageId = messageId;
+  state.editingValue = message.content;
+  renderMessages();
+
+  const focusEditor = () => {
+    const textarea = elements.messages.querySelector(
+      `textarea[data-edit-id="${messageId}"]`
+    );
+    if (textarea) {
+      textarea.focus();
+      const length = textarea.value.length;
+      textarea.setSelectionRange(length, length);
+    }
+  };
+
+  if (typeof requestAnimationFrame === "function") {
+    requestAnimationFrame(focusEditor);
+  } else {
+    setTimeout(focusEditor, 0);
+  }
+}
+
+function cancelEditingMessage() {
+  state.editingMessageId = null;
+  state.editingValue = "";
+  renderMessages();
+}
+
+function saveEditedMessage() {
+  const messageId = state.editingMessageId;
+  if (!messageId) return;
+
+  const chat = getActiveChat();
+  if (!chat) return;
+
+  const index = chat.messages.findIndex((m) => m.id === messageId);
+  if (index === -1) return;
+
+  const message = chat.messages[index];
+  const trimmed = state.editingValue.trim();
+
   if (!trimmed) {
     setStatus("Message cannot be empty.");
     return;
   }
 
+  if (message.content === trimmed) {
+    cancelEditingMessage();
+    setStatus("No changes made.", false);
+    return;
+  }
+
   message.content = trimmed;
-  delete message.audioUrl;
-  saveState();
-  renderMessages();
-  setStatus("Assistant message updated.", false);
+
+  if (message.role === "assistant") {
+    delete message.audioUrl;
+    saveState();
+    cancelEditingMessage();
+    setStatus("Assistant message updated.", false);
+    return;
+  }
+
+  if (message.role === "user") {
+    chat.messages = chat.messages.slice(0, index + 1);
+    saveState();
+    cancelEditingMessage();
+    requestAssistantResponse(chat);
+  }
 }
 
 function branchChatFromMessage(messageId) {

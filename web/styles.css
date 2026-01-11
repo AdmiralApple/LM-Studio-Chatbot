@@ -168,6 +168,11 @@ body {
   padding: 0.9rem;
 }
 
+.message--editing {
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.08);
+}
+
 .message__head {
   display: flex;
   justify-content: space-between;
@@ -199,6 +204,30 @@ body {
 .message__controls button {
   font-size: 0.8rem;
   padding: 0.2rem 0.5rem;
+}
+
+.message__controls--editing {
+  font-style: italic;
+  color: #facc15;
+}
+
+.message__editor {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(250, 204, 21, 0.7);
+  background: rgba(15, 23, 42, 0.95);
+  color: inherit;
+  font: inherit;
+  padding: 0.75rem;
+  resize: vertical;
+  margin-top: 0.75rem;
+}
+
+.message__editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .composer {
