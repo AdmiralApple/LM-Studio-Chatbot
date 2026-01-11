@@ -134,6 +134,12 @@ function bindEvents() {
       stopAudio(true);
     });
   }
+
+  elements.promptInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    elements.composer.requestSubmit();
+  });
 }
 
 function loadState() {
