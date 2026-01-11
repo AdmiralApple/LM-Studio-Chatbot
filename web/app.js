@@ -277,6 +277,11 @@ function renderMessages() {
         editBtn.addEventListener("click", () => editUserMessage(message.id));
         controls.appendChild(editBtn);
       }
+      const branchBtn = document.createElement("button");
+      branchBtn.className = "btn ghost";
+      branchBtn.textContent = "Branch";
+      branchBtn.addEventListener("click", () => branchChatFromMessage(message.id));
+      controls.appendChild(branchBtn);
       head.appendChild(controls);
 
       const content = document.createElement("pre");
@@ -517,6 +522,30 @@ function editAssistantMessage(messageId) {
   saveState();
   renderMessages();
   setStatus("Assistant message updated.", false);
+}
+
+function branchChatFromMessage(messageId) {
+  const chat = getActiveChat();
+  if (!chat) return;
+  const index = chat.messages.findIndex((m) => m.id === messageId);
+  if (index === -1) return;
+
+  const newChat = {
+    id: newId(),
+    title: chat.title,
+    createdAt: new Date().toISOString(),
+    messages: chat.messages.slice(0, index + 1).map((message) => ({ ...message })),
+  };
+
+  updateChatTitle(newChat);
+  state.chats.unshift(newChat);
+  state.activeChatId = newChat.id;
+  saveState();
+  render();
+  if (elements.promptInput) {
+    elements.promptInput.focus();
+  }
+  setStatus("Branched chat created.", false);
 }
 
 function setStatus(message, isError = true) {
