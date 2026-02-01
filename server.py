@@ -55,7 +55,8 @@ def _parse_voice_catalog(path: Path, fallback_lang: str) -> Dict[str, Dict[str, 
                 continue
 
             name_cell = cells[0]
-            name = re.sub(r"[`*]", "", name_cell).strip()
+            # Remove markdown emphasis/escape characters (e.g., "**af\_heart**" -> "af_heart")
+            name = re.sub(r"[`*]", "", name_cell).replace("\\_", "_").strip()
             if not name or name.lower() == "name":
                 continue
 
@@ -123,32 +124,44 @@ def _audio_to_wav_base64(audio: np.ndarray) -> str:
 
 def synthesize_audio(
     text: str, voice_name: Optional[str] = None
-) -> Tuple[Optional[str], str]:
+) -> Tuple[str, str]:
     resolved_voice, lang_code = get_voice_info(voice_name)
 
-    if not text or not text.strip():
-        return None, resolved_voice
+    clean_text = (text or "").strip()
+    if not clean_text:
+        raise ValueError("No text provided to synthesize.")
 
-    pipeline = get_pipeline(lang_code)
+    last_error: Optional[Exception] = None
+    for attempt in (0, 1):
+        pipeline = get_pipeline(lang_code)
 
-    with tts_lock:
         try:
-            segments: List[np.ndarray] = []
-            for chunk in pipeline(text, voice=resolved_voice):
-                audio = chunk.audio
-                if isinstance(audio, torch.Tensor):
-                    audio = audio.detach().cpu().numpy()
-                arr = np.asarray(audio, dtype=np.float32).flatten()
-                if arr.size:
-                    segments.append(arr)
-            if not segments:
-                return None, resolved_voice
-            audio = np.concatenate(segments)
+            with tts_lock:
+                segments: List[np.ndarray] = []
+                for chunk in pipeline(clean_text, voice=resolved_voice):
+                    audio = chunk.audio
+                    if isinstance(audio, torch.Tensor):
+                        audio = audio.detach().cpu().numpy()
+                    arr = np.asarray(audio, dtype=np.float32).flatten()
+                    if arr.size:
+                        segments.append(arr)
+                if not segments:
+                    raise RuntimeError("Kokoro returned empty audio.")
+                audio = np.concatenate(segments)
+            return _audio_to_wav_base64(audio), resolved_voice
         except Exception as exc:  # pragma: no cover - safety net for runtime TTS failures
-            app.logger.error("TTS failure: %s", exc)
-            return None, resolved_voice
+            last_error = exc
+            # Reset the cached pipeline in case it got into a bad state for this language.
+            pipelines.pop(lang_code, None)
+            if attempt == 0:
+                continue
+            error_msg = f"TTS failed for voice '{resolved_voice}': {exc}"
+            app.logger.error(error_msg)
+            raise RuntimeError(error_msg) from exc
 
-    return _audio_to_wav_base64(audio), resolved_voice
+    raise RuntimeError(
+        f"TTS failed for voice '{resolved_voice}': {last_error}"
+    ) from last_error
 
 
 def _fetch_lmstudio_models() -> List[str]:
@@ -227,6 +240,8 @@ def chat():
         audio_b64, resolved_voice = synthesize_audio(content, resolved_voice)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
     return jsonify(
         {"content": content, "audio": audio_b64, "model": model_name, "voice": resolved_voice}
@@ -243,9 +258,8 @@ def tts():
         audio_b64, resolved_voice = synthesize_audio(text, voice)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-
-    if not audio_b64:
-        return jsonify({"error": "Unable to synthesize audio"}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
     return jsonify({"audio": audio_b64, "voice": resolved_voice})
 
