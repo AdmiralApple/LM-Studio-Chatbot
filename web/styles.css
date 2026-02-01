@@ -104,21 +104,34 @@ body {
 }
 
 .model-control select,
-.voice-control select,
-#temperature-input {
-  background: transparent;
-  border: none;
-  color: inherit;
-}
-
-.model-control select,
 .voice-control select {
   min-width: 8rem;
-  color: inherit;
+  color: #e2e8f0;
+  background: #0b1224;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.model-control select:focus,
+.voice-control select:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 1px;
+}
+
+.model-control option,
+.voice-control option {
+  background: #0b1224;
+  color: #e2e8f0;
 }
 
 #temperature-input {
   width: 4rem;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  color: inherit;
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.45rem;
 }
 
 .btn {
