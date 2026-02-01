@@ -8,16 +8,18 @@ Small Flask app that lets you chat with an LM Studio model and hear the replies 
 - (Optional) GPU for faster Kokoro inference; otherwise CPU works
 
 ## Quickstart
-```bash
-python -m venv .venv
-source .venv/bin/activate      # Windows: .venv\\Scripts\\activate
-pip install --upgrade pip
-pip install -r requirements.txt
+- **Windows (simplest):** double-click `run_server.bat` — it will create/activate `.venv`, install requirements, and start the server.
+- **Mac/Linux (or manual):**
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install --upgrade pip
+  pip install -r requirements.txt
 
-# Start LM Studio separately, then run the app:
-python server.py
-```
-Open http://localhost:5000 in your browser to use the chat UI. On Windows you can also double-click `run_server.bat`.
+  # Start LM Studio separately, then run the app:
+  python server.py
+  ```
+Then open http://localhost:5000 in your browser to use the chat UI.
 
 ## Config (environment variables)
 - `LMSTUDIO_BASE_URL` – Base URL for the LM Studio API (default `http://127.0.0.1:1234/v1`)
