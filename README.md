@@ -5,7 +5,6 @@ Small Flask app that lets you chat with an LM Studio model and hear the replies 
 ## Requirements
 - Python 3.10+ with `pip`
 - LM Studio running locally with a chat model loaded and the API server enabled (defaults to `http://127.0.0.1:1234/v1` and key `lm-studio`)
-- (Optional) GPU for faster Kokoro inference; otherwise CPU works
 
 ## Quickstart
 - **Windows (simplest):** double-click `run_server.bat` — it will create/activate `.venv`, install requirements, and start the server.
