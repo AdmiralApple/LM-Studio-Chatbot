@@ -33,6 +33,19 @@ def _parse_voice_catalog(path: Path, fallback_lang: str) -> Dict[str, Dict[str, 
     if not path.exists():
         return voices
 
+    def _detect_gender(name: str, cells: list[str]) -> str:
+        combined = " ".join(cells)
+        if "🚺" in combined or "♀" in combined:
+            return "female"
+        if "🚹" in combined or "♂" in combined:
+            return "male"
+        prefix = name.split("_", 1)[0].lower()
+        if prefix.endswith("f"):
+            return "female"
+        if prefix.endswith("m"):
+            return "male"
+        return "unknown"
+
     lang_code = fallback_lang
     lang_re = re.compile(r"lang_code='([a-z])'", re.IGNORECASE)
 
@@ -60,7 +73,9 @@ def _parse_voice_catalog(path: Path, fallback_lang: str) -> Dict[str, Dict[str, 
             if not name or name.lower() == "name":
                 continue
 
-            voices[name] = {"lang": lang_code}
+            gender = _detect_gender(name, cells)
+
+            voices[name] = {"lang": lang_code, "gender": gender}
 
     return voices
 
@@ -79,11 +94,16 @@ _model_cache: dict[str, float | List[str]] = {"ts": 0.0, "models": []}
 MODEL_CACHE_TTL = 30.0  # seconds
 
 voice_catalog = _parse_voice_catalog(VOICES_PATH, KOKORO_DEFAULT_LANG)
-DEFAULT_VOICE = os.getenv("KOKORO_VOICE", "af_nicole")
-if DEFAULT_VOICE not in voice_catalog:
-    DEFAULT_VOICE = next(iter(voice_catalog.keys()), DEFAULT_VOICE or "af_nicole")
+PREFERRED_DEFAULT_VOICE = "af_nicole"
+env_default_voice = os.getenv("KOKORO_VOICE")
+if env_default_voice and env_default_voice in voice_catalog:
+    DEFAULT_VOICE = env_default_voice
+elif PREFERRED_DEFAULT_VOICE in voice_catalog:
+    DEFAULT_VOICE = PREFERRED_DEFAULT_VOICE
+else:
+    DEFAULT_VOICE = next(iter(voice_catalog.keys()), env_default_voice or PREFERRED_DEFAULT_VOICE)
     if DEFAULT_VOICE not in voice_catalog:
-        voice_catalog[DEFAULT_VOICE] = {"lang": KOKORO_DEFAULT_LANG}
+        voice_catalog[DEFAULT_VOICE] = {"lang": KOKORO_DEFAULT_LANG, "gender": "unknown"}
 
 
 def get_voice_info(requested: Optional[str]) -> tuple[str, str]:
@@ -273,7 +293,7 @@ def list_models():
 @app.route("/api/voices", methods=["GET"])
 def list_voices():
     voices = [
-        {"name": name, "lang_code": meta["lang"]}
+        {"name": name, "lang_code": meta["lang"], "gender": meta.get("gender", "unknown")}
         for name, meta in sorted(voice_catalog.items())
     ]
     return jsonify({"voices": voices, "default": DEFAULT_VOICE})

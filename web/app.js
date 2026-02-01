@@ -756,10 +756,19 @@ function renderVoiceSelect() {
     return;
   }
 
-  state.voices.forEach((voice) => {
+  const voiceOrder = { female: 0, male: 1, unknown: 2 };
+  const sortedVoices = [...state.voices].sort((a, b) => {
+    const rankA = voiceOrder[a.gender] ?? 2;
+    const rankB = voiceOrder[b.gender] ?? 2;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.name.localeCompare(b.name);
+  });
+
+  sortedVoices.forEach((voice) => {
     const option = document.createElement("option");
     option.value = voice.name;
-    option.textContent = `${voice.name} (${voice.lang_code})`;
+    const label = voice.gender ? `${voice.gender === "male" ? "M" : voice.gender === "female" ? "F" : "?"} · ${voice.name}` : voice.name;
+    option.textContent = `${label} (${voice.lang_code})`;
     select.appendChild(option);
   });
 
